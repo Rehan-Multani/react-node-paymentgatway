@@ -1,72 +1,43 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useState } from "react";
+import API from "./api.js";
 
-const PaymentForm = () => {
-  const [amount, setAmount] = useState('10');
-  const [mobileNumber, setMobileNumber] = useState('6268204871');
-  const [loading, setLoading] = useState(false);
+function App() {
+  const [status, setStatus] = useState("Click to Pay");
 
-  const handlePayment = async () => {
-    if (!amount || !mobileNumber) {
-      alert("Amount aur mobile number bharna zaroori hai");
-      return;
-    }
-
-    setLoading(true);
+  const handlePhonePePayment = async () => {
+    setStatus("Generating token...");
 
     try {
-      const response = await axios.post('http://localhost:8000/create-payment', {
-        amount: parseInt(amount) * 100,
-        mobileNumber: mobileNumber,
-        redirectUrl: 'http://localhost:3000/payment-success',
-        callbackUrl: 'http://localhost:3000/payment-callback'
-      });
-      console.log("responseresponse", response);
-      const { paymentUrl } = response.data;
-      console.log("paymentUrl", paymentUrl);
-      if (paymentUrl) {
-        window.open(paymentUrl, "_self");
-      } else {
-        alert("Payment URL nahi mila. Error ho gaya.");
-      }
+      // Step 1: Get Access Token
+      const tokenRes = await API.get("/get-token");
+      const accessToken = tokenRes.data.access_token;
 
+      setStatus("Initiating payment...");
+
+      // Step 2: Call /pay with access token
+      const payRes = await API.post("/pay", { accessToken });
+
+      if (payRes.data && payRes.data.redirectUrl) {
+        setStatus("Redirecting to payment...");
+
+        // ✅ Redirect user to PhonePe payment page
+        window.location.href = payRes.data.redirectUrl;
+      } else {
+        setStatus("Payment initiation failed.");
+        console.error(payRes.data);
+      }
     } catch (err) {
-      console.error("❌ Payment Error:", err);
-      alert("Payment request failed");
-    } finally {
-      setLoading(false);
+      console.error(err);
+      setStatus("Error occurred.");
     }
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: '0 auto', padding: 20 }}>
-      <h2>💳 PhonePe Payment</h2>
-
-      <input
-        type="number"
-        placeholder="Amount in ₹"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        style={{ width: '100%', padding: 10, marginBottom: 10 }}
-      />
-
-      <input
-        type="text"
-        placeholder="Mobile Number"
-        value={mobileNumber}
-        onChange={(e) => setMobileNumber(e.target.value)}
-        style={{ width: '100%', padding: 10, marginBottom: 10 }}
-      />
-
-      <button
-        onClick={handlePayment}
-        disabled={loading}
-        style={{ width: '100%', padding: 10, backgroundColor: 'green', color: '#fff' }}
-      >
-        {loading ? 'Processing...' : 'Pay Now'}
-      </button>
+    <div style={{ padding: 50 }}>
+      <h2>PhonePe Payment Integration</h2>
+      <button onClick={handlePhonePePayment}>{status}</button>
     </div>
   );
-};
+}
 
-export default PaymentForm;
+export default App;
